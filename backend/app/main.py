@@ -1,13 +1,18 @@
 import os
 from functools import partial
-
 import gradio as gr
 from huggingface_hub import InferenceClient
 
 system_promt = """
 You are helpful,respectful asistant.Always answer as helpfullt as possibly,while being safe. 
 """
-
+theme = gr.themes.Default(primary_hue="pink").set(
+    button_primary_background_fill="#FFC0CB",
+    button_primary_background_fill_hover="#FFC0EA",
+    checkbox_label_background_fill="#678C45",
+    input_border_width="1px",
+    input_border_color="#FFC0CB"
+)
 
 def inference(promt, hf_token, model, model_name):
     messages = [{"role": "system", "content": system_promt}, {"role": "user", "content": promt}]
@@ -15,16 +20,13 @@ def inference(promt, hf_token, model, model_name):
         hf_token = os.getenv("HF_TOKEN")
     client = InferenceClient(model=model, token=hf_token)
     tokens = f"**{model_name}**\n"
-
-    for completion in client.chat_completion(messages, max_tokens=200, stream=True):
+    stream = client.chat_completion(messages, max_tokens=200, stream=True)
+    for completion in stream:
         token = completion.choices[0].delta.content
         if token is not None:
             tokens += token
             yield tokens
 
-
-def hide():
-    return gr.Textbox(visible="hidden")
 
 
 with gr.Blocks() as demo:
@@ -42,15 +44,10 @@ with gr.Blocks() as demo:
 
     with gr.Row():
         llama_output = gr.Markdown("Llama-3.3-70B-Instruct model")
-        mistral_output = gr.Markdown("<h1>gemma-4-26B-A4B-it<h1>")
+        mistral_output = gr.Markdown("gemma-4-26B-A4B-it")
         qwen_output = gr.Markdown("Qwen2.5-72B-Instruct model")
 
-    gr.on(triggers=[promt.submit, gen_button.click],
-          fn=hide,
-          inputs=None,
-          outputs=[token],
-          show_progress="hidden"
-          )
+
     gr.on(triggers=[promt.submit, gen_button.click],
           fn=partial(inference, model="meta-llama/Llama-3.3-70B-Instruct", model_name="Llama-3.3-70B-Instruct"),
           inputs=[promt, token],
@@ -59,7 +56,7 @@ with gr.Blocks() as demo:
 
           )
     gr.on(triggers=[promt.submit, gen_button.click],
-          fn=partial(inference, model="google/gemma-4-26B-A4B-it", model_name="gemma-4-26B-A4B-it"),
+          fn=partial(inference, model="google/gemma-4-31B-itk", model_name="gemma-2-9b-it"),
           inputs=[promt, token],
           outputs=[mistral_output],
           show_progress="hidden"
@@ -74,4 +71,4 @@ with gr.Blocks() as demo:
           )
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(theme=gr.themes.Soft())
